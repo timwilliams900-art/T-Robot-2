@@ -1,0 +1,182 @@
+<!doctype html><html><head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="T Robot">
+<meta name="mobile-web-app-capable" content="yes">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>T iPhone 17 Brain Connect v1.9.1</title>
+<style>
+:root{--bg:#091322;--card:#17263b;--blue:#63c5ef;--text:#f5f7fb;--muted:#b9c7d9;--black:#06101e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.w{max-width:760px;margin:auto;padding:max(18px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom))}.top{text-align:center}.top h1{font-size:38px;margin:8px 0}.ver{color:var(--muted);font-size:15px}
+.face{width:260px;height:150px;margin:10px auto;position:relative}.eye{position:absolute;top:25px;width:76px;height:62px;background:white;border-radius:22px;transition:.18s}.e1{left:42px}.e2{right:42px}.pupil{position:absolute;width:22px;height:28px;background:#07101e;border-radius:50%;left:27px;top:17px;transition:.18s}.mouth{position:absolute;left:90px;top:112px;width:80px;height:12px;background:white;border-radius:8px;transition:.12s}
+.face.listening .pupil{transform:translateY(5px)}.face.thinking .pupil{transform:translate(10px,-5px)}.face.speaking .mouth{animation:talk .35s infinite alternate}.face.blink .eye{height:7px;top:52px}.face.blink .pupil{display:none}@keyframes talk{from{width:45px;left:108px}to{width:110px;left:75px}}
+.card{background:var(--card);border-radius:28px;padding:28px;margin:22px 0}h2{font-size:30px;margin:0 0 20px}.buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.buttons button{width:100%}@media(min-width:650px){.buttons{grid-template-columns:repeat(5,minmax(0,1fr))}button{font-size:18px;padding:14px 10px}}button{border:0;border-radius:18px;background:var(--blue);color:#06101e;font-size:21px;font-weight:800;padding:16px 20px;min-height:62px}textarea,input{width:100%;border:0;border-radius:16px;padding:16px;font-size:20px;margin:8px 0}textarea{min-height:110px;resize:vertical}.send{width:100%;margin-top:8px;background:#8de6b2}.status,.answer{background:var(--black);border-radius:18px;padding:19px;font-size:20px;line-height:1.45;margin-top:14px}.answer{min-height:95px}p{color:var(--muted);font-size:18px;line-height:1.45}details{color:var(--muted);margin-top:16px}.dot{display:inline-block;width:13px;height:13px;border-radius:50%;background:#aaa;margin-right:8px}.on{background:#77e6a0}.listen{background:#70dfff}.think{background:#ffd76a}
+</style></head><body>
+
+<div id="tEnvironmentBanner" style="
+  position:sticky;top:0;z-index:9999;
+  margin:0 auto 12px auto;padding:10px 14px;
+  max-width:760px;border-radius:0 0 16px 16px;
+  background:#071827;color:#d9ecff;
+  font:600 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  text-align:center;">
+  T environment: checking…
+</div>
+<div class="w">
+<div class="top"><div id="face" class="face"><div class="eye e1"><i class="pupil"></i></div><div class="eye e2"><i class="pupil"></i></div><div class="mouth"></div></div><h1>T - Robot Assistant</h1><div class="ver">iPhone 17 version 1.9.1 • Brain Connect • v1.9 bugfix</div></div>
+<div class="card"><h2>Talk to T</h2><div class="buttons"><button id="talk">🎤 Talk to T</button><button id="ask">Ask T</button><button id="stop">⏹ Stop</button><button id="surprise">🎲 Surprise me</button><button id="speak">🔊 Speak Answer</button></div><p>Ask your question, then say <b>“over”</b>.</p><div class="status"><span id="dot" class="dot on"></span>Status: <b id="state">Ready</b></div></div>
+<div class="card"><h2>🧠 T's brain</h2><textarea id="q" placeholder="Type or speak your question"></textarea><button id="send" class="send">➤ Send typed question</button><div id="brain" class="status">Brain status: ready to test.</div><div id="answer" class="answer">T's answer will appear here.</div>
+<details open><summary>▶ Connect T's online brain</summary><p>T can now use a small built-in fallback brain. For full AI answers, enter T's secure brain address below.</p><input id="server" placeholder="https://your-T-server/chat"><div class="buttons"><button id="save">Save address</button><button id="testbrain">Test Brain</button></div><p id="connectionHelp">No online address saved yet — fallback brain is active.</p></details></div>
+<div class="card"><h2>⚙️ T Settings</h2><p>Voice: pitch 0.9 • speed 1.05. Face automatically shows Listening → Thinking → Speaking → Ready. If the online brain is unavailable, T automatically uses his built-in fallback brain.</p></div></div>
+<script>
+
+// v1.9 SAFARI HOME CONTROLLER
+// Only the question/answer cycle controls the main status.
+// Speech is deliberately independent on iPhone Safari.
+function tThinking() {
+  // Bug fix v1.9.1: update T to Thinking instead of recursively calling itself.
+  mode("thinking");
+}
+function tReady() {
+  setStatus("ready", "Ready");
+}
+function tAnswerComplete() {
+  tReady();
+}
+
+
+// v1.9 iPhone reliability: status watchdog.
+// Safari can occasionally miss speech-synthesis completion callbacks.
+// Any temporary state therefore has a guaranteed route back to Ready.
+let tReadySafetyTimer = null;
+
+function tCancelReadySafety() {
+  if (tReadySafetyTimer) {
+    clearTimeout(tReadySafetyTimer);
+    tReadySafetyTimer = null;
+  }
+}
+
+function tForceReadyAfter(ms = 7000) {
+  tCancelReadySafety();
+  tReadySafetyTimer = setTimeout(() => {
+    try { setStatus("ready", "Ready"); } catch (e) {
+      const el = document.getElementById("statusText");
+      if (el) el.textContent = "Ready";
+    }
+  }, ms);
+}
+
+function tSetTemporaryStatus(kind, label, safetyMs = 7000) {
+  try { setStatus(kind, label); } catch (e) {}
+  tForceReadyAfter(safetyMs);
+}
+
+function tFinishReady(delay = 350) {
+  tCancelReadySafety();
+  setTimeout(() => {
+    try { setStatus("ready", "Ready"); } catch (e) {
+      const el = document.getElementById("statusText");
+      if (el) el.textContent = "Ready";
+    }
+  }, delay);
+}
+
+const $=x=>document.getElementById(x),face=$('face'),state=$('state'),dot=$('dot'),q=$('q'),brain=$('brain'),ans=$('answer');let rec,last='',finalText='',listening=false;
+$('server').value=localStorage.getItem('tServer')||'';
+function mode(m){state.textContent=m[0].toUpperCase()+m.slice(1);face.className='face '+m;dot.className='dot '+(m==='ready'?'on':m==='listening'?'listen':m==='thinking'?'think':'on')}
+setInterval(()=>{if(state.textContent==='Ready'){face.classList.add('blink');setTimeout(()=>face.classList.remove('blink'),130)}},4500);
+function clean(s){s=s.replace(/\bover\b[\s.!?]*$/i,'').trim();let w=s.split(/\s+/);if(w.length%2===0){let n=w.length/2;if(w.slice(0,n).join(' ').toLowerCase()==w.slice(n).join(' ').toLowerCase())s=w.slice(0,n).join(' ')}return s}
+function speak(t){if(!t){mode('ready');return}speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.pitch=.9;u.rate=1.05;u.onstart=()=>mode('speaking');u.onend=()=>mode('ready');u.onerror=()=>mode('ready');speechSynthesis.speak(u)}
+
+function fallbackAnswer(text){
+ const t=text.toLowerCase();
+ if(t.includes('space')) return "Here’s a T-sized space fact: a day on Venus lasts longer than a Venus year. Venus turns so slowly that one rotation takes about 243 Earth days, while it goes around the Sun in about 225. Bweep — even I could finish a software update before sunrise there!";
+ if(t.includes('riddle')) return "Riddle time. What has keys but no locks, space but no room, and you can enter but not go inside? A keyboard. Tiny robot victory!";
+ if(t.includes('science')||t.includes('fact')) return "A teaspoon of neutron-star material would have an enormous mass on Earth — roughly billions of tonnes. That is one spoon I am definitely not putting in the dishwasher.";
+ if(/hello|hi |hey/.test(' '+t)) return "Hello Timothy! T is awake, listening, and ready for mischief. My built-in brain is working; my full online AI brain is the next connection.";
+ if(t.includes('who are you')||t.includes('your name')) return "I’m T, your tiny robot assistant — cheeky, curious and currently living on your iPhone while we build the rest of me.";
+ if(t.includes('time')) return "I can see the iPhone's local time is "+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+". Full live-information answers will come from my online brain.";
+ return "I heard: “"+text+"”. My built-in brain is working, but that question needs my full online AI brain. We can connect that next without changing this working iPhone interface.";
+}
+async function testBrain(){let url=$('server').value.trim();if(!url){brain.textContent='Brain test: no online address saved. Built-in T brain is working ✓';$('connectionHelp').textContent='Fallback brain active. Add a secure server address for full AI.';return}if(!/^https:\/\//i.test(url)){brain.textContent='Brain test: use a secure https:// address.';$('connectionHelp').textContent='For iPhone use, T’s online brain address should start with https://';mode('ready');return}mode('thinking');brain.textContent='Brain test: checking connection…';try{let c=new AbortController(),tm=setTimeout(()=>c.abort(),10000);let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Reply with: T brain connected'}),signal:c.signal});clearTimeout(tm);if(!r.ok)throw Error('HTTP '+r.status);let d=await r.json();brain.textContent='Brain status: ONLINE ✓';$('connectionHelp').textContent='Full online brain responded successfully.';last=d.answer||d.reply||d.message||'T brain connected';ans.textContent=last;mode('ready')}catch(e){brain.textContent='Brain test failed: '+e.message;$('connectionHelp').textContent='The iPhone interface is still fine; fallback brain remains active.';mode('ready')}}
+
+async function ask(){let text=clean(q.value);q.value=text;if(!text){brain.textContent='Type a question first, or tap Talk to T.';q.focus();return}mode('thinking');brain.textContent='Brain status: contacting T…';let url=$('server').value.trim();if(url && !/^https:\/\//i.test(url)){brain.textContent='Brain status: online address is not secure; using built-in T brain.';url=''}if(!url){last=fallbackAnswer(text);ans.textContent=last;brain.textContent='Brain status: built-in T brain active • online AI not connected.';speak(last);return}
+try{let controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text}),signal:controller.signal});clearTimeout(timer);if(!r.ok)throw Error('HTTP '+r.status);let d=await r.json();last=d.answer||d.reply||d.message||'I received a response but could not read it.';ans.textContent=last;brain.textContent='Brain status: connected ✓';speak(last)}catch(e){last=fallbackAnswer(text);ans.textContent=last;brain.textContent='Brain status: online connection failed • built-in T brain took over ✓';$('connectionHelp').textContent='Online brain problem: '+e.message+'. T automatically used the built-in brain.';speak(last)}}
+$('testbrain').onclick=testBrain;$('ask').onclick=ask;$('send').onclick=ask;q.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter')ask()});$('speak').onclick=()=>speak(last||ans.textContent);$('save').onclick=()=>{let u=$('server').value.trim();if(u && !/^https:\/\//i.test(u)){brain.textContent='Brain status: address not saved — please use https://';$('connectionHelp').textContent='A secure HTTPS address is required for the iPhone online brain.';return}localStorage.setItem('tServer',u);brain.textContent=u?'Brain status: address saved — tap Test Brain.':'Brain status: built-in T brain active.';$('connectionHelp').textContent=u?'Address saved. Test it before using full AI.':'No online address saved — fallback brain is active.'}
+$('stop').onclick=()=>{listening=false;try{rec&&rec.stop()}catch{}speechSynthesis.cancel();mode('ready')}
+$('surprise').onclick=()=>{q.value=['Tell me a surprising science fact','Give me a riddle','Tell me something fascinating about space'][Math.floor(Math.random()*3)];ask()}
+$('talk').onclick=()=>{let SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){brain.textContent='Microphone speech recognition is unavailable here. Type your question and tap Send typed question.';mode('ready');return}finalText='';rec=new SR;rec.lang='en-GB';rec.continuous=true;rec.interimResults=true;listening=true;mode('listening');rec.onresult=e=>{let inter='';for(let i=e.resultIndex;i<e.results.length;i++){let t=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=' '+t;else inter+=t}let raw=(finalText+' '+inter).trim();q.value=clean(raw);if(/\bover[\s.!?]*$/i.test(raw)){listening=false;try{rec.stop()}catch{}q.value=clean(raw);ask()}};rec.onerror=e=>{listening=false;brain.textContent='Microphone problem: '+e.error+'. You can still type your question below.';mode('ready')};rec.onend=()=>{if(listening){listening=false;mode('ready')}};rec.start()}
+window.addEventListener('error',e=>{brain.textContent='App error: '+e.message+'. Typed questions remain available.'});mode('ready');
+
+
+
+// v1.9 final guard: when a Send/Ask action settles, the visible answer
+// is already complete, so main status must be Ready.
+document.addEventListener("click", (ev) => {
+  const label = (ev.target && ev.target.textContent || "").toLowerCase();
+  if (label.includes("send typed") || label.includes("ask t")) {
+    setTimeout(() => tReady(), 1200);
+    setTimeout(() => tReady(), 4000);
+  }
+});
+
+// Returning to the page should always show a usable idle state.
+window.addEventListener("pageshow", () => tReady());
+
+
+// v1.9 runtime environment check.
+(function () {
+  const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  const iosStandalone = window.navigator.standalone === true;
+  const protocol = location.protocol;
+  let mode = 'Safari webpage';
+  if (standalone || iosStandalone) mode = 'Home Screen web app';
+  else if (protocol === 'file:') mode = 'iPhone local-file / preview mode';
+  const b = document.getElementById('tEnvironmentBanner');
+  if (b) b.textContent = 'T environment: ' + mode;
+})();
+
+// Absolute direct reset: bypasses every previous status helper.
+function tDirectReady() {
+  const candidates = [
+    document.getElementById('statusText'),
+    document.querySelector('[id*="status" i] strong'),
+    document.querySelector('[id*="status" i] b')
+  ].filter(Boolean);
+  for (const el of candidates) el.textContent = 'Ready';
+
+  // Also repair a status container that stores the complete phrase.
+  document.querySelectorAll('[id*="status" i], [class*="status" i]').forEach(el => {
+    const txt = (el.textContent || '').trim();
+    if (/^status:\s*(thinking|speaking|listening)$/i.test(txt)) {
+      el.textContent = 'Status: Ready';
+    }
+  });
+}
+
+document.getElementById('tResetStatusBtn')?.addEventListener('click', tDirectReady);
+
+// For typed questions, reset directly after the fallback answer has had time to render.
+// This is deliberately independent of speech synthesis.
+document.addEventListener('click', function (ev) {
+  const txt = (ev.target?.textContent || '').toLowerCase();
+  if (txt.includes('send typed question')) {
+    setTimeout(tDirectReady, 700);
+    setTimeout(tDirectReady, 1800);
+  }
+}, true);
+
+window.addEventListener('pageshow', () => setTimeout(tDirectReady, 200));
+
+</script>
+<div style="max-width:760px;margin:18px auto 30px auto;padding:0 16px;">
+<button id="tResetStatusBtn" type="button" style="
+ width:100%;padding:15px;border:0;border-radius:16px;
+ font-size:18px;font-weight:700;background:#dcecff;color:#071827;">
+  ↻ Reset T to Ready
+</button>
+</div>
+
+</body></html>
