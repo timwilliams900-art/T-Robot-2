@@ -24,7 +24,7 @@
   T environment: checking…
 </div>
 <div class="w">
-<div class="top"><div id="face" class="face"><div class="eye e1"><i class="pupil"></i></div><div class="eye e2"><i class="pupil"></i></div><div class="mouth"></div></div><h1>T - Robot Assistant</h1><div class="ver">iPhone 17 version 1.9.1 • Brain Connect • v1.9 bugfix</div></div>
+<div class="top"><div id="face" class="face"><div class="eye e1"><i class="pupil"></i></div><div class="eye e2"><i class="pupil"></i></div><div class="mouth"></div></div><h1>T - Robot Assistant</h1><div class="ver">iPhone 17 version 1.9.2 • Brain Connect • v4.5 voice restored</div></div>
 <div class="card"><h2>Talk to T</h2><div class="buttons"><button id="talk">🎤 Talk to T</button><button id="ask">Ask T</button><button id="stop">⏹ Stop</button><button id="surprise">🎲 Surprise me</button><button id="speak">🔊 Speak Answer</button></div><p>Ask your question, then say <b>“over”</b>.</p><div class="status"><span id="dot" class="dot on"></span>Status: <b id="state">Ready</b></div></div>
 <div class="card"><h2>🧠 T's brain</h2><textarea id="q" placeholder="Type or speak your question"></textarea><button id="send" class="send">➤ Send typed question</button><div id="brain" class="status">Brain status: ready to test.</div><div id="answer" class="answer">T's answer will appear here.</div>
 <details open><summary>▶ Connect T's online brain</summary><p>T can now use a small built-in fallback brain. For full AI answers, enter T's secure brain address below.</p><input id="server" placeholder="https://your-T-server/chat"><div class="buttons"><button id="save">Save address</button><button id="testbrain">Test Brain</button></div><p id="connectionHelp">No online address saved yet — fallback brain is active.</p></details></div>
@@ -88,7 +88,32 @@ $('server').value=localStorage.getItem('tServer')||'';
 function mode(m){state.textContent=m[0].toUpperCase()+m.slice(1);face.className='face '+m;dot.className='dot '+(m==='ready'?'on':m==='listening'?'listen':m==='thinking'?'think':'on')}
 setInterval(()=>{if(state.textContent==='Ready'){face.classList.add('blink');setTimeout(()=>face.classList.remove('blink'),130)}},4500);
 function clean(s){s=s.replace(/\bover\b[\s.!?]*$/i,'').trim();let w=s.split(/\s+/);if(w.length%2===0){let n=w.length/2;if(w.slice(0,n).join(' ').toLowerCase()==w.slice(n).join(' ').toLowerCase())s=w.slice(0,n).join(' ')}return s}
-function speak(t){if(!t){mode('ready');return}speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.pitch=.9;u.rate=1.05;u.onstart=()=>mode('speaking');u.onend=()=>mode('ready');u.onerror=()=>mode('ready');speechSynthesis.speak(u)}
+// T Voice v4.5 — prefer the lighter/sweeter device voices used in the earlier T build.
+let tVoices=[];
+function tVoiceScore(x){
+ let s=/en-GB/i.test(x.lang)?10:0;
+ if(/female|samantha|serena|kate|victoria|ava|siri|moira|fiona|susan|zira|aria|sonia|libby|maisie/i.test(x.name))s+=30;
+ if(/male|daniel|david|george|mark|alex|fred/i.test(x.name))s-=15;
+ return s;
+}
+function loadTVoices(){tVoices=speechSynthesis.getVoices().slice().sort((a,b)=>tVoiceScore(b)-tVoiceScore(a));}
+loadTVoices();
+speechSynthesis.addEventListener?.('voiceschanged',loadTVoices);
+speechSynthesis.onvoiceschanged=loadTVoices;
+function preferredTVoice(){if(!tVoices.length)loadTVoices();return tVoices[0]||null;}
+function speak(t){
+ if(!t){mode('ready');return}
+ speechSynthesis.cancel();
+ try{speechSynthesis.resume()}catch(_){}
+ let u=new SpeechSynthesisUtterance(t);
+ u.voice=preferredTVoice();
+ u.pitch=.9;
+ u.rate=1.05;
+ u.onstart=()=>mode('speaking');
+ u.onend=()=>mode('ready');
+ u.onerror=()=>mode('ready');
+ speechSynthesis.speak(u);
+}
 
 function fallbackAnswer(text){
  const t=text.toLowerCase();
